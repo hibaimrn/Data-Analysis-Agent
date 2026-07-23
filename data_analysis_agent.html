@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Datastack — Talk to Your Data</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --ink: #e8efe9;
+    --bg: #0a0f0c;
+    --bg-deep: #0d1410;
+    --panel: #121b16;
+    --line: #24352b;
+    --line-soft: #1b2820;
+    --teal: #2f9c82;
+    --teal-bright: #45c3a4;
+    --teal-wash: #14251e;
+    --clay: #d98a3f;
+    --clay-wash: #241a11;
+    --muted: #8ba295;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --sans: "Space Grotesk", -apple-system, system-ui, sans-serif;
+    --display: "Fraunces", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto; }
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    padding: 34px 0 30px;
+    background:
+      radial-gradient(circle at 12% -30%, var(--teal-wash), transparent 42%),
+      var(--bg-deep);
+    border-bottom: 1px solid var(--line);
+  }
+  .brandrow { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  .mark { display: flex; align-items: center; gap: 14px; }
+  .glyph {
+    width: 42px; height: 42px; flex: 0 0 auto;
+    border: 1.5px solid var(--teal); border-radius: 11px;
+    display: grid; place-items: center; background: var(--panel);
+    position: relative; overflow: hidden;
+  }
+  .glyph i {
+    position: absolute; bottom: 8px; width: 5px; border-radius: 1px; background: var(--teal);
+  }
+  .glyph i:nth-child(1){ left: 9px;  height: 10px; }
+  .glyph i:nth-child(2){ left: 17px; height: 18px; background: var(--clay); }
+  .glyph i:nth-child(3){ left: 25px; height: 13px; }
+  .wordmark { font-family: var(--display); font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+  .wordmark span { font-style: italic; font-weight: 400; color: var(--teal); }
+  .kicker {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); text-align: right;
+  }
+  .lede {
+    font-family: var(--display); font-size: clamp(22px, 3.4vw, 32px); font-weight: 400;
+    line-height: 1.22; max-width: 620px; margin: 24px 0 0; letter-spacing: -0.4px;
+  }
+  .lede em { font-style: italic; color: var(--teal); }
+
+  .setup { padding: 26px 0; border-bottom: 1px solid var(--line); background: var(--bg); }
+  .panelcard {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px; box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 30px -20px rgba(0,0,0,0.8);
+  }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; }
+  .field { flex: 1; min-width: 240px; }
+  label {
+    display: block; font-family: var(--mono); font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted);
+    margin-bottom: 7px;
+  }
+  input[type=password], input[type=text] {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--line);
+    background: #0b120e; font-family: var(--mono); font-size: 13px;
+    border-radius: 9px; color: var(--ink); transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus {
+    outline: none; border-color: var(--teal);
+    box-shadow: 0 0 0 3px var(--teal-wash);
+  }
+  .filebtn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px;
+    border: 1px solid var(--teal); background: var(--teal-wash); color: var(--teal-bright);
+    font-family: var(--mono); font-size: 12.5px; cursor: pointer; border-radius: 9px;
+    transition: background .15s, transform .1s, color .15s;
+  }
+  .filebtn:hover { background: var(--teal); border-color: var(--teal); color: #06110d; }
+  .filebtn:active { transform: translateY(1px); }
+  .filebtn.loaded { background: var(--teal); border-color: var(--teal); color: #06110d; }
+  input[type=file] { display: none; }
+
+  .hint { font-size: 13px; color: var(--muted); margin-top: 16px; line-height: 1.6; }
+  .hint code { font-family: var(--mono); background: var(--teal-wash); color: var(--teal); padding: 2px 6px; border-radius: 5px; font-size: 12px; }
+
+  .schema {
+    margin-top: 18px; font-family: var(--mono);
+    display: none; border: 1px solid var(--line); border-radius: 11px; overflow: hidden;
+    background: #0b120e;
+  }
+  .schema-head {
+    background: var(--teal-wash); padding: 10px 14px; color: var(--teal);
+    font-weight: 500; font-size: 12px; display: flex; justify-content: space-between; align-items: center;
+    letter-spacing: 0.3px;
+  }
+  .schema-head b { font-weight: 500; }
+  .schema-cols { padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 7px; }
+  .col-chip {
+    background: var(--panel); border: 1px solid var(--line); padding: 4px 10px;
+    border-radius: 20px; font-size: 11px; display: flex; align-items: center; gap: 6px;
+  }
+  .col-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot.number { background: var(--teal); }
+  .dot.text { background: var(--clay); }
+  .dot.date { background: #b58a2e; }
+  .dot.empty { background: var(--muted); }
+  .col-chip span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .chatwrap { padding: 30px 0 44px; min-height: 30vh; }
+
+  /* dashboard */
+  #dashwrap { padding-top: 28px; padding-bottom: 8px; }
+  .dash-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+  .dash-title { font-family: var(--display); font-size: 22px; font-weight: 500; }
+  .dash-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .kpi {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+    box-shadow: 0 10px 30px -24px rgba(0,0,0,0.8);
+  }
+  .kpi-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 8px; }
+  .kpi-value { font-family: var(--display); font-size: 28px; font-weight: 600; color: var(--teal-bright); line-height: 1; }
+  .kpi-foot { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 8px; }
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .dash-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; box-shadow: 0 10px 30px -24px rgba(0,0,0,0.8); }
+  .dash-card h3 { font-family: var(--display); font-size: 15px; font-weight: 500; margin: 0 0 10px; }
+  .dash-card .chartbox { margin: 0; border: none; padding: 0; background: transparent; }
+
+  .msg { margin-bottom: 26px; animation: rise .4s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .msg-role {
+    font-family: var(--mono); font-size: 10.5px; text-transform: uppercase;
+    letter-spacing: 1.4px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .msg-role::before { content: ""; width: 18px; height: 1.5px; }
+  .msg.user .msg-role { color: var(--clay); }
+  .msg.user .msg-role::before { background: var(--clay); }
+  .msg.agent .msg-role { color: var(--teal); }
+  .msg.agent .msg-role::before { background: var(--teal); }
+  .msg-body {
+    background: var(--panel); border: 1px solid var(--line); padding: 16px 18px; border-radius: 12px;
+    box-shadow: 0 4px 20px -18px rgba(25,27,26,0.5);
+  }
+  .msg.user .msg-body { background: var(--clay-wash); border-color: #3a2a17; }
+  .msg-body p { margin: 0 0 10px; }
+  .msg-body p:last-child { margin-bottom: 0; }
+
+  .codehead {
+    font-family: var(--mono); font-size: 9.5px; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--muted); margin: 16px 0 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .codehead::after { content: ""; flex: 1; height: 1px; background: var(--line-soft); }
+  .answerpill {
+    display: inline-block; background: var(--teal); color: #fff; font-family: var(--mono);
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 1.5px; padding: 3px 9px;
+    border-radius: 20px; margin: 14px 0 8px;
+  }
+  .codeblock {
+    background: #050907; color: #9fe6d1; font-family: var(--mono);
+    font-size: 12px; padding: 14px 16px; border-radius: 10px; overflow-x: auto;
+    margin: 4px 0 4px; white-space: pre; line-height: 1.6; border: 1px solid var(--line-soft);
+  }
+
+  .resulttable { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; margin: 6px 0; border: 1px solid var(--line-soft); border-radius: 10px; overflow: hidden; }
+  .resulttable th, .resulttable td {
+    padding: 8px 12px; text-align: left; font-family: var(--mono); font-size: 12px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .resulttable th { background: var(--teal-wash); color: var(--teal); font-weight: 500; }
+  .resulttable tr:last-child td { border-bottom: none; }
+  .resulttable tbody tr:nth-child(even) td { background: #0e1712; }
+  .resulttable td { color: var(--ink); }
+
+  .chartbox { margin: 14px 0 4px; background: #0b120e; border: 1px solid var(--line); padding: 16px; border-radius: 11px; }
+
+  .composer {
+    position: sticky; bottom: 0;
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+    padding: 18px 0 22px;
+  }
+  .suggestions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sugg {
+    font-family: var(--mono); font-size: 11px; padding: 6px 12px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer;
+    border-radius: 20px; color: var(--muted); transition: all .15s;
+  }
+  .sugg:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-wash); }
+  .composer-row {
+    display: flex; gap: 10px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 13px; padding: 6px; box-shadow: 0 8px 30px -22px rgba(25,27,26,0.6);
+  }
+  .composer-row:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-wash); }
+  .composer input {
+    flex: 1; padding: 11px 14px; border: none; background: transparent;
+    font-family: var(--sans); font-size: 14.5px; color: var(--ink);
+  }
+  .composer input:focus { outline: none; }
+  .send {
+    padding: 11px 24px; border: none; background: var(--teal); color: #fff;
+    font-family: var(--mono); font-size: 12.5px; cursor: pointer; border-radius: 9px;
+    letter-spacing: 0.5px; transition: background .15s, transform .1s;
+  }
+  .send:disabled { background: #2a3a31; color: #6d7d74; cursor: not-allowed; }
+  .send:hover:not(:disabled) { background: var(--teal-bright); }
+  .send:active:not(:disabled) { transform: translateY(1px); }
+
+  .thinking { font-family: var(--mono); font-size: 12.5px; color: var(--teal); display: flex; align-items: center; gap: 10px; }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .3; transform: scale(.8);} 50% { opacity: 1; transform: scale(1.15);} }
+  .dots::after { content: ""; animation: dots 1.3s steps(4, end) infinite; }
+  @keyframes dots { 0%{content:"";} 25%{content:".";} 50%{content:"..";} 75%{content:"...";} }
+
+  .empty {
+    text-align: center; padding: 44px 20px; color: var(--muted);
+    font-family: var(--mono); font-size: 13px; border: 1px dashed var(--line);
+    border-radius: 13px; background: var(--panel);
+  }
+  .banner {
+    background: var(--clay); color: #fff; font-family: var(--mono); font-size: 12px;
+    padding: 10px 14px; border-radius: 9px; margin: 14px 0 0; display: none;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brandrow">
+      <div class="mark">
+        <div class="glyph"><i></i><i></i><i></i></div>
+        <div class="wordmark">data<span>stack</span></div>
+      </div>
+      <div class="kicker">agentic analysis<br>bring your own key</div>
+    </div>
+    <h1 class="lede">Ask your spreadsheet a question in plain English. The agent <em>writes the query, runs it, and charts the answer.</em></h1>
+  </div>
+</header>
+
+<div class="wrap setup">
+  <div class="panelcard">
+    <div class="row">
+      <div class="field">
+        <label for="apikey">OpenAI API key</label>
+        <input type="password" id="apikey" placeholder="sk-..." autocomplete="off">
+      </div>
+      <div class="field" style="flex:0 0 auto;">
+        <label>Dataset</label>
+        <label class="filebtn" for="csvfile" id="filebtn">↑ Upload CSV</label>
+        <input type="file" id="csvfile" accept=".csv,text/csv">
+      </div>
+    </div>
+    <div class="hint">
+      Your key stays in this browser tab and is sent only to OpenAI. The agent reads your CSV's schema, writes JavaScript to compute an answer, runs it locally on your data, then explains the result. Try <code>which category has the highest average revenue?</code>
+    </div>
+    <div class="schema" id="schema">
+      <div class="schema-head"><b id="schema-name">dataset</b><span id="schema-rows"></span></div>
+      <div class="schema-cols" id="schema-cols"></div>
+    </div>
+    <div class="banner" id="banner"></div>
+  </div>
+</div>
+
+<div class="wrap" id="dashwrap" style="display:none;">
+  <div class="dash-head">
+    <span class="dash-title">Overview</span>
+    <span class="dash-sub" id="dash-sub"></span>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="dash-grid" id="dash-grid"></div>
+</div>
+
+<div class="wrap chatwrap">
+  <div id="chat">
+    <div class="empty" id="empty">Add your key and a CSV to begin. The agent handles querying and charting for you.</div>
+  </div>
+</div>
+
+<div class="composer">
+  <div class="wrap">
+    <div class="suggestions" id="suggestions"></div>
+    <div class="composer-row">
+      <input type="text" id="question" placeholder="Ask a question about your data..." disabled>
+      <button class="send" id="send" disabled>Analyze</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const MODEL = "gpt-4o";
+let DATA = [];
+let COLUMNS = [];
+let FILENAME = "";
+
+const $ = id => document.getElementById(id);
+
+// Parse numbers that may carry $, commas, %, or (parentheses) for negatives.
+function parseNumeric(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  let s = String(v).trim();
+  if (s === "") return null;
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+  s = s.replace(/[$£€¥,%\s]/g, "");
+  if (s === "" || !/^-?\d*\.?\d+$/.test(s)) return null;
+  let n = parseFloat(s);
+  if (isNaN(n)) return null;
+  return neg ? -n : n;
+}
+
+function inferType(values) {
+  const sample = values.filter(v => v !== null && v !== undefined && v !== "").slice(0, 50);
+  if (sample.length === 0) return "empty";
+  const allNum = sample.every(v => parseNumeric(v) !== null);
+  if (allNum) return "number";
+  const allDate = sample.every(v => !isNaN(Date.parse(v)));
+  if (allDate) return "date";
+  return "text";
+}
+
+function buildSchema() {
+  COLUMNS = Object.keys(DATA[0] || {}).map(name => ({
+    name,
+    type: inferType(DATA.map(r => r[name]))
+  }));
+}
+
+function renderSchema() {
+  $("schema-name").textContent = FILENAME;
+  $("schema-rows").textContent = DATA.length + " rows";
+  $("schema-cols").innerHTML = COLUMNS.map(c =>
+    `<div class="col-chip"><span class="dot ${c.type}"></span>${escapeHtml(c.name)} <span>${c.type}</span></div>`
+  ).join("");
+  $("schema").style.display = "block";
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+function num(v) { return parseNumeric(v); }
+
+function fmtNum(n) {
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return (n/1e9).toFixed(1) + "B";
+  if (abs >= 1e6) return (n/1e6).toFixed(1) + "M";
+  if (abs >= 1e3) return (n/1e3).toFixed(1) + "K";
+  return Number.isInteger(n) ? n.toString() : n.toFixed(2);
+}
+
+function groupSum(catCol, numCol) {
+  const map = {};
+  for (const r of DATA) {
+    const k = (r[catCol] ?? "").toString() || "(blank)";
+    const v = num(r[numCol]);
+    if (v === null) continue;
+    map[k] = (map[k] || 0) + v;
+  }
+  return Object.entries(map).sort((a,b) => b[1]-a[1]);
+}
+
+function groupCount(catCol) {
+  const map = {};
+  for (const r of DATA) {
+    const k = (r[catCol] ?? "").toString() || "(blank)";
+    map[k] = (map[k] || 0) + 1;
+  }
+  return Object.entries(map).sort((a,b) => b[1]-a[1]);
+}
+
+// Detect the "metrics as rows, periods as columns" layout (e.g. Revenue/Expenses
+// down the side, Jan..Dec across the top). Returns a plan or null.
+function detectTransposed() {
+  const textCols = COLUMNS.filter(c => c.type === "text");
+  if (textCols.length < 1 || DATA.length < 2 || DATA.length > 40) return null;
+  const labelCol = textCols[0].name;
+  const otherCols = COLUMNS.filter(c => c.name !== labelCol);
+  if (otherCols.length < 3) return null;
+
+  // A header row is one whose non-label cells are all non-numeric text (the period names).
+  let headerRow = null, headerIdx = -1;
+  for (let i = 0; i < DATA.length; i++) {
+    const cells = otherCols.map(c => DATA[i][c.name]);
+    const nonEmpty = cells.filter(v => v !== "" && v != null);
+    if (nonEmpty.length >= 3 && nonEmpty.every(v => parseNumeric(v) === null)) {
+      headerRow = cells.map(v => String(v)); headerIdx = i; break;
+    }
+  }
+
+  // Data rows = rows (excluding the header row) whose other cells are mostly numeric.
+  const dataRows = DATA.filter((r, i) => i !== headerIdx).filter(r => {
+    const cells = otherCols.map(c => parseNumeric(r[c.name]));
+    const nums = cells.filter(v => v !== null);
+    return nums.length >= 3;
+  });
+  if (dataRows.length < 1) return null;
+
+  const periodNames = headerRow || otherCols.map(c => c.name);
+  return { labelCol, periodCols: otherCols.map(c => c.name), periodNames, dataRows };
+}
+
+function computeTransposedSpec(plan) {
+  const { labelCol, periodCols, periodNames, dataRows } = plan;
+  const metrics = dataRows
+    .map(r => ({
+      name: (r[labelCol] ?? "").toString().trim() || "(unnamed)",
+      values: periodCols.map(c => num(r[c]))
+    }))
+    .filter(m => m.values.some(v => v !== null));
+
+  const kpis = [{ label: "Metrics", value: fmtNum(metrics.length), foot: periodCols.length + " periods" }];
+  metrics.slice(0, 3).forEach(m => {
+    const vals = m.values.filter(v => v !== null);
+    const sum = vals.reduce((a,b)=>a+b,0);
+    kpis.push({ label: "Total " + m.name, value: fmtNum(sum), foot: "avg " + fmtNum(sum / (vals.length||1)) });
+  });
+
+  const cards = [];
+  metrics.slice(0, 4).forEach(m => {
+    cards.push({ title: m.name + " over period", chart: { type: "line", labels: periodNames, values: m.values } });
+  });
+  if (metrics.length >= 2) {
+    cards.push({
+      title: "Metric totals",
+      chart: {
+        type: "bar",
+        labels: metrics.map(m => m.name),
+        values: metrics.map(m => m.values.filter(v=>v!==null).reduce((a,b)=>a+b,0))
+      }
+    });
+  }
+  return { kpis, cards, sub: FILENAME + " · " + metrics.length + " metrics · " + cards.length + " views" };
+}
+
+function computeStandardSpec() {
+  const numCols = COLUMNS.filter(c => c.type === "number");
+  const catCols = COLUMNS.filter(c => c.type === "text");
+  const dateCols = COLUMNS.filter(c => c.type === "date");
+
+  const kpis = [{ label: "Rows", value: fmtNum(DATA.length), foot: COLUMNS.length + " columns" }];
+  numCols.slice(0, 3).forEach(c => {
+    const vals = DATA.map(r => num(r[c.name])).filter(v => v !== null);
+    if (!vals.length) return;
+    const sum = vals.reduce((a,b)=>a+b,0);
+    kpis.push({ label: "Total " + c.name, value: fmtNum(sum), foot: "avg " + fmtNum(sum / vals.length) });
+  });
+
+  const cards = [];
+  if (catCols.length && numCols.length) {
+    const rows = groupSum(catCols[0].name, numCols[0].name).slice(0, 8);
+    if (rows.length) cards.push({ title: numCols[0].name + " by " + catCols[0].name, chart: { type: "bar", labels: rows.map(r=>r[0]), values: rows.map(r=>r[1]) } });
+  }
+  const pieCat = catCols[1] || catCols[0];
+  if (pieCat) {
+    const rows = groupCount(pieCat.name).slice(0, 6);
+    if (rows.length > 1) cards.push({ title: "Count by " + pieCat.name, chart: { type: "pie", labels: rows.map(r=>r[0]), values: rows.map(r=>r[1]) } });
+  }
+  if (dateCols.length && numCols.length) {
+    const map = {};
+    for (const r of DATA) {
+      const d = r[dateCols[0].name]; const v = num(r[numCols[0].name]);
+      if (!d || v === null) continue;
+      const key = new Date(d).toISOString().slice(0,10);
+      map[key] = (map[key]||0)+v;
+    }
+    const rows = Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
+    if (rows.length > 1) cards.push({ title: numCols[0].name + " over time", chart: { type: "line", labels: rows.map(r=>r[0]), values: rows.map(r=>r[1]) } });
+  }
+  if (catCols.length && numCols.length > 1 && cards.length < 4) {
+    const rows = groupSum(catCols[0].name, numCols[1].name).slice(0, 8);
+    if (rows.length) cards.push({ title: numCols[1].name + " by " + catCols[0].name, chart: { type: "bar", labels: rows.map(r=>r[0]), values: rows.map(r=>r[1]) } });
+  }
+  return { kpis, cards, sub: FILENAME + " · " + DATA.length + " rows · " + cards.length + " views" };
+}
+
+// Compute the best dashboard spec for the current dataset.
+function computeDashboardSpec() {
+  const numCols = COLUMNS.filter(c => c.type === "number");
+  const t = detectTransposed();
+  if (t && numCols.length === 0) {
+    const spec = computeTransposedSpec(t);
+    if (spec.cards.length) return spec;
+  }
+  return computeStandardSpec();
+}
+
+// Render KPI cards + chart cards into a container (Overview area or a chat message).
+function renderDashboardInto(kpiHost, gridHost, spec) {
+  kpiHost.innerHTML = spec.kpis.map(k =>
+    `<div class="kpi"><div class="kpi-label">${escapeHtml(k.label)}</div><div class="kpi-value">${escapeHtml(k.value)}</div><div class="kpi-foot">${escapeHtml(k.foot)}</div></div>`
+  ).join("");
+  gridHost.innerHTML = "";
+  spec.cards.forEach(card => {
+    const el = document.createElement("div");
+    el.className = "dash-card";
+    el.innerHTML = `<h3>${escapeHtml(card.title)}</h3>`;
+    gridHost.appendChild(el);
+    drawChart(el, card.chart);
+  });
+}
+
+function buildDashboard() {
+  const spec = computeDashboardSpec();
+  renderDashboardInto($("kpis"), $("dash-grid"), spec);
+  $("dash-sub").textContent = spec.sub;
+  $("dashwrap").style.display = (spec.cards.length || spec.kpis.length) ? "block" : "none";
+}
+
+$("csvfile").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  FILENAME = file.name;
+  Papa.parse(file, {
+    header: true, dynamicTyping: false, skipEmptyLines: true,
+    complete: res => {
+      DATA = res.data;
+      if (DATA.length === 0) { showBanner("That CSV came through empty. Try another file."); return; }
+      buildSchema();
+      renderSchema();
+      buildDashboard();
+      const btn = $("filebtn"); btn.textContent = "✓ " + FILENAME; btn.classList.add("loaded");
+      $("empty").textContent = "Ready. Ask anything about " + FILENAME + ".";
+      renderSuggestions();
+      maybeEnable();
+    },
+    error: () => showBanner("Could not read that CSV. Check the file and try again.")
+  });
+});
+
+$("apikey").addEventListener("input", maybeEnable);
+
+function maybeEnable() {
+  const ready = $("apikey").value.trim().length > 0 && DATA.length > 0;
+  $("question").disabled = !ready;
+  $("send").disabled = !ready;
+}
+
+function showBanner(text) {
+  const b = $("banner");
+  b.textContent = text; b.style.display = "block";
+  setTimeout(() => { b.style.display = "none"; }, 6000);
+}
+
+function renderSuggestions() {
+  const numCols = COLUMNS.filter(c => c.type === "number").map(c => c.name);
+  const catCols = COLUMNS.filter(c => c.type === "text").map(c => c.name);
+  const s = [];
+  if (numCols.length) s.push(`What is the total and average of ${numCols[0]}?`);
+  if (catCols.length && numCols.length) s.push(`Which ${catCols[0]} has the highest ${numCols[0]}?`);
+  if (catCols.length) s.push(`How many rows per ${catCols[0]}?`);
+  s.push("Summarize the key patterns in this data");
+  $("suggestions").innerHTML = s.map(q => `<button class="sugg">${escapeHtml(q)}</button>`).join("");
+  document.querySelectorAll(".sugg").forEach(btn => btn.addEventListener("click", () => {
+    $("question").value = btn.textContent; ask();
+  }));
+}
+
+function addMsg(role, html) {
+  const empty = $("empty");
+  if (empty) empty.remove();
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.innerHTML = `<div class="msg-role">${role === "user" ? "You" : "Agent"}</div><div class="msg-body">${html}</div>`;
+  $("chat").appendChild(div);
+  window.scrollTo(0, document.body.scrollHeight);
+  return div;
+}
+
+$("send").addEventListener("click", ask);
+$("question").addEventListener("keydown", e => { if (e.key === "Enter") ask(); });
+
+async function ask() {
+  const q = $("question").value.trim();
+  if (!q || $("send").disabled) return;
+  const apiKey = $("apikey").value.trim();
+  $("question").value = "";
+  addMsg("user", `<p>${escapeHtml(q)}</p>`);
+
+  // Dashboard intent: render the full multi-chart dashboard inline instead of a single chart.
+  if (/\b(dashboard|overview|multiple charts|full report|all the charts)\b/i.test(q)) {
+    const msg = addMsg("agent", "");
+    const body = msg.querySelector(".msg-body");
+    const spec = computeDashboardSpec();
+    if (!spec.cards.length) {
+      body.innerHTML = `<p>I couldn't derive chartable columns from this dataset, so there's nothing to put on a dashboard yet. If your file has a title or blank rows above the table, removing them usually fixes it.</p>`;
+      return;
+    }
+    body.innerHTML =
+      `<p>Here's a dashboard built from your data: ${spec.cards.length} charts and ${spec.kpis.length} summary metrics. This is the same Overview shown at the top of the page.</p>
+       <div class="kpis" data-role="chat-kpis" style="margin-bottom:14px;"></div>
+       <div class="dash-grid" data-role="chat-grid"></div>`;
+    renderDashboardInto(body.querySelector('[data-role="chat-kpis"]'), body.querySelector('[data-role="chat-grid"]'), spec);
+    window.scrollTo(0, document.body.scrollHeight);
+    return;
+  }
+
+  const thinking = addMsg("agent", `<div class="thinking"><span class="pulse"></span>Planning the analysis<span class="dots"></span></div>`);
+
+  const sampleRows = DATA.slice(0, 3);
+  const schemaDesc = COLUMNS.map(c => `${c.name} (${c.type})`).join(", ");
+
+  const systemPrompt =
+`You are a data analysis agent. You are given a dataset schema and a user question.
+Write a single JavaScript function body that computes the answer. The data is available as a variable named "rows", an array of objects. Column names and types:
+${schemaDesc}
+
+Sample rows: ${JSON.stringify(sampleRows)}
+
+Your code must "return" an object shaped like this:
+{
+  "summary": "<one sentence stating the answer in plain English>",
+  "table": [ { "column": "value", ... }, ... ],   // rows to show; keep <= 25
+  "chart": {
+    "type": "bar" | "line" | "pie" | "none",
+    "labels": ["A","B",...],       // x-axis / category labels
+    "values": [10, 20, ...],       // numeric values aligned to labels
+    "title": "<chart title>"
+  }
+}
+Rules:
+- Numeric columns are stored as strings; parse with parseFloat.
+- Always populate chart.labels and chart.values as concrete arrays inside the code (do NOT return code strings).
+- If a chart does not make sense, set chart.type to "none" and use empty arrays.
+- Be defensive against missing/empty values.
+
+Respond with ONLY a JSON object, no markdown fences, in this shape:
+{ "code": "<the javascript function BODY that returns the object above; do NOT wrap it in 'function(){...}' or an arrow function, just the statements ending in a return>", "explanation": "<one or two sentences describing your approach>" }`;
+
+  try {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: q }
+        ],
+        temperature: 0,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      thinking.querySelector(".msg-body").innerHTML =
+        `<p>OpenAI returned an error: ${escapeHtml(err.error?.message || resp.status + " " + resp.statusText)}.</p><p>Check your API key and try again.</p>`;
+      return;
+    }
+
+    const payload = await resp.json();
+    let plan;
+    try {
+      plan = JSON.parse(payload.choices[0].message.content);
+    } catch {
+      thinking.querySelector(".msg-body").innerHTML = `<p>The agent's plan could not be parsed. Try rephrasing the question.</p>`;
+      return;
+    }
+
+    renderPlan(thinking, plan);
+  } catch (e) {
+    thinking.querySelector(".msg-body").innerHTML = `<p>Request failed: ${escapeHtml(e.message)}.</p><p>Check your network and key.</p>`;
+  }
+}
+
+function runExpr(expr) {
+  let code = (expr || "").trim();
+  // The model sometimes wraps the body in `function() { ... }` or `() => { ... }`.
+  // runExpr already provides the function scope, so unwrap it to just the body.
+  let m = code.match(/^(?:function\s*\w*\s*\([^)]*\)|\([^)]*\)\s*=>)\s*\{([\s\S]*)\}\s*;?\s*$/);
+  if (m) code = m[1];
+  return new Function("rows", `"use strict"; ${code}`)(DATA);
+}
+
+const CHART_COLORS = ["#2f9c82","#d98a3f","#45c3a4","#c9a94e","#6fd6b8","#e0a074","#1f7a63","#9adcc9","#b8823a","#7ec9ae"];
+
+function drawChart(container, chart) {
+  if (!chart || !chart.type || chart.type === "none") return false;
+  const labels = Array.isArray(chart.labels) ? chart.labels : [];
+  const values = Array.isArray(chart.values) ? chart.values.map(v => typeof v === "number" ? v : parseFloat(v)) : [];
+  if (labels.length === 0 || values.length === 0) return false;
+
+  const box = document.createElement("div");
+  box.className = "chartbox";
+  const canvas = document.createElement("canvas");
+  box.appendChild(canvas);
+  container.appendChild(box);
+
+  new Chart(canvas, {
+    type: chart.type,
+    data: {
+      labels,
+      datasets: [{
+        label: chart.title || "",
+        data: values,
+        backgroundColor: chart.type === "line" ? "rgba(47,156,130,0.15)" : CHART_COLORS,
+        borderColor: chart.type === "line" ? "#45c3a4" : "#45c3a4",
+        borderWidth: chart.type === "line" ? 2 : 1,
+        fill: chart.type === "line",
+        tension: 0.3,
+        pointBackgroundColor: "#45c3a4"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: chart.type === "pie", labels: { font: { family: "JetBrains Mono" }, color: "#e8efe9" } },
+        title: { display: !!chart.title, text: chart.title, font: { family: "Fraunces", size: 15 }, color: "#e8efe9" }
+      },
+      scales: chart.type === "pie" ? {} : {
+        x: { ticks: { font: { family: "JetBrains Mono", size: 10 }, color: "#8ba295" }, grid: { color: "#1b2820" } },
+        y: { ticks: { font: { family: "JetBrains Mono", size: 10 }, color: "#8ba295" }, grid: { color: "#1b2820" } }
+      }
+    }
+  });
+  return true;
+}
+
+function renderPlan(container, plan) {
+  const body = container.querySelector(".msg-body");
+  let html = "";
+
+  if (plan.explanation) html += `<p>${escapeHtml(plan.explanation)}</p>`;
+
+  let result;
+  try {
+    result = runExpr(plan.code);
+  } catch (e) {
+    body.innerHTML = html + `<div class="codehead">generated code</div><div class="codeblock">${escapeHtml(plan.code)}</div><p>Running that produced an error: ${escapeHtml(e.message)}.</p>`;
+    return;
+  }
+
+  // Structured result: { summary, table, chart }
+  const summary = result && result.summary;
+  const table = result && result.table;
+  const chart = result && result.chart;
+
+  if (summary) html += `<p><strong>${escapeHtml(summary)}</strong></p>`;
+
+  html += `<span class="answerpill">answer</span>`;
+  if (Array.isArray(table) && table.length) {
+    html += renderResult(table);
+  } else {
+    // fall back to showing whatever came back
+    html += renderResult(result);
+  }
+  html += `<div class="codehead">generated code</div><div class="codeblock">${escapeHtml(plan.code)}</div>`;
+  body.innerHTML = html;
+
+  try {
+    const drawn = drawChart(body, chart);
+    if (!drawn && chart && chart.type && chart.type !== "none") {
+      const note = document.createElement("p");
+      note.textContent = "No chartable values were produced for this question, but the answer above is complete.";
+      body.appendChild(note);
+    }
+  } catch (e) {
+    const note = document.createElement("p");
+    note.textContent = "The chart could not be rendered, but the answer above is complete.";
+    body.appendChild(note);
+  }
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function renderResult(result) {
+  if (Array.isArray(result) && result.length && typeof result[0] === "object") {
+    const cols = Object.keys(result[0]);
+    let t = `<table class="resulttable"><thead><tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead><tbody>`;
+    result.slice(0, 25).forEach(row => {
+      t += `<tr>${cols.map(c => `<td>${escapeHtml(fmt(row[c]))}</td>`).join("")}</tr>`;
+    });
+    t += `</tbody></table>`;
+    if (result.length > 25) t += `<p style="font-size:12px;color:var(--muted)">Showing first 25 of ${result.length} rows.</p>`;
+    return t;
+  }
+  if (typeof result === "object" && result !== null) {
+    let t = `<table class="resulttable"><tbody>`;
+    for (const [k, v] of Object.entries(result)) {
+      t += `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(fmt(v))}</td></tr>`;
+    }
+    t += `</tbody></table>`;
+    return t;
+  }
+  return `<div class="codeblock">${escapeHtml(fmt(result))}</div>`;
+}
+
+function fmt(v) {
+  if (typeof v === "number") return Number.isInteger(v) ? v.toString() : v.toFixed(2);
+  return v === null || v === undefined ? "" : String(v);
+}
+</script>
+</body>
+</html>
